@@ -34,7 +34,7 @@ class Mail {
                     </div>
                 `
             });
-            console.log("Email sent!");
+            console.log("Email sent to" + to);
         } catch (error) {
             console.log(error.message);
         }

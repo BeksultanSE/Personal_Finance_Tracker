@@ -33,7 +33,8 @@
     <div class="container py-5">
         <h2 class="text-center mb-4">Budgeting Limits</h2>
         <div class="d-flex justify-content-between mb-3">
-            <button class="btn btn-primary" id="addBudgetBtn" data-bs-toggle="modal" data-bs-target="#budgetModal">Add Budget</button>
+            <button class="btn btn-primary" id="addBudgetBtn" data-bs-toggle="modal" data-bs-target="#budgetModal">Add
+                Budget</button>
         </div>
         <table class="table table-striped">
             <thead>
@@ -50,6 +51,10 @@
         <h3 class="mt-5">LAST MONTHS STATISTICS</h3>
         <div id="statistics"></div>
     </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container"></div>
+
 
     <!-- Modal for Adding Budget -->
     <div class="modal fade" id="budgetModal" tabindex="-1" aria-labelledby="budgetModalLabel" aria-hidden="true">
@@ -69,6 +74,7 @@
                             <label for="budgetLimit" class="form-label">Limit</label>
                             <input type="number" class="form-control" id="budgetLimit" required>
                         </div>
+                        <input type="hidden" id="budgetId">
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -87,6 +93,10 @@
         const API_URL_STATISTICS = '/api/transactions/inRange';
         const budgetTableBody = document.getElementById('budgetTableBody');
         const statisticsDiv = document.getElementById('statistics');
+        const budgetModal = document.getElementById('budgetModal');
+        const toastContainer = document.querySelector('.toast-container');
+        let isEdit = false;
+
 
         // Fetch budgets and statistics on load
         document.addEventListener('DOMContentLoaded', async () => {
@@ -94,33 +104,57 @@
             await fetchStatistics();
         });
 
+        // Budget Modal state
+        budgetModal.addEventListener('hidden.bs.modal', () => {
+            document.getElementById('budgetCategory').value = '';
+            document.getElementById('budgetLimit').value = '';
+            document.getElementById('budgetId').value = '';
+            isEdit = false; // Reset the edit flag
+        });
+
+        // Show Toast Notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0 show`;
+            toast.style.minWidth = '200px';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            toastContainer.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
         // Fetch and display budgets
         async function fetchBudgets() {
             try {
-                
+
                 const response = await fetch(API_URL_BUDGETS, {
                     method: 'GET',
-                    
                 });
                 const budgets = await response.json();
+
                 renderBudgets(budgets);
             } catch (error) {
                 console.error('Error fetching budgets:', error);
+                showToast('Error fetching budgets', 'danger');
             }
         }
 
         // Render budgets in the table
         function renderBudgets(budgets) {
             budgetTableBody.innerHTML = budgets.map(budget => `
-                <tr>
-                    <td>${budget.category}</td>
-                    <td>₸${budget.limit.toFixed(2)}</td>
-                    <td>
-                        <button class="btn btn-warning btn-sm" onclick="editBudget('${budget._id}')">Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteBudget('${budget._id}')">Delete</button>
-                    </td>
-                </tr>
-            `).join('');
+                    <tr data-id="${budget._id}" data-category="${budget.category}" data-limit="${budget.limit}">
+                        <td>${budget.category}</td>
+                        <td>₸${budget.limit.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm" onclick="openEditModal(this)">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteBudget('${budget._id}')">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
         }
 
         // Fetch and display statistics
@@ -133,7 +167,7 @@
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
                         'Content-Type': 'application/json',
-                        },
+                    },
                     body: JSON.stringify({
                         "startDate": lastMonth,
                         "endDate": new Date(),
@@ -174,29 +208,69 @@
         document.getElementById('saveBudgetBtn').addEventListener('click', async () => {
             const category = document.getElementById('budgetCategory').value;
             const limit = parseFloat(document.getElementById('budgetLimit').value);
+            const id = document.getElementById('budgetId').value;
 
             if (!category || isNaN(limit)) {
-                alert('Please fill all fields');
+                showToast('Please fill all fields', 'warning');
                 return;
             }
 
+            const budget = { category, limit };
             try {
-                await fetch(API_URL_BUDGETS, {
-                    method: 'POST',
+                const method = isEdit ? 'PUT' : 'POST';
+                const endpoint = isEdit ? `${API_URL_BUDGETS}/${id}` : API_URL_BUDGETS;
+                const response = await fetch(endpoint, {
+                    method,
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ category, limit })
+                    body: JSON.stringify(budget)
                 });
-                fetchBudgets(); // Refresh the budget list
-                bootstrap.Modal.getInstance(document.getElementById('budgetModal')).hide();
+                if (!response.ok) throw new Error('Failed to save budget');
+                fetchBudgets();
+                bootstrap.Modal.getInstance(budgetModal).hide();
+                showToast(isEdit ? 'Budget updated successfully' : 'Budget added successfully', 'success');
             } catch (error) {
-                console.error('Error saving budget:', error);
+                console.error(error);
+                showToast('Error saving budget', 'danger');
             }
         });
 
-        // Edit and delete functions will be implemented here
+        // Open modal for editing budget
+        function openEditModal(button) {
+            const row = button.closest('tr');
+            const id = row.getAttribute('data-id');
+            const category = row.getAttribute('data-category');
+            const limit = parseFloat(row.getAttribute('data-limit'));
+            document.getElementById('budgetCategory').value = category;
+            document.getElementById('budgetLimit').value = limit;
+            document.getElementById('budgetId').value = id;
+            isEdit = true;
+            const modal = new bootstrap.Modal(budgetModal);
+            modal.show();
+        }
+
+
+        // Delete Budget
+        async function deleteBudget(id) {
+            if (!confirm("Are you sure you want to delete this budget?")) return;
+
+            try {
+                await fetch(`${API_URL_BUDGETS}/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                fetchBudgets(); // Refresh budget list
+            } catch (error) {
+                console.error('Error deleting budget:', error);
+                
+            }
+        }
+
+
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
