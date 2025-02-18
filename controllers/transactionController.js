@@ -1,19 +1,44 @@
 const Transaction = require('../models/transaction');
 const mongoose = require('mongoose');
 
-// GET all transactions for the authenticated user
+// GET all transactions for the authenticated user with filters, sorting, and pagination
 const getTransactions = async (req, res) => {
   try {
-    const transactions = await Transaction.find({ userId: req.user.id });
-    res.status(200).json(transactions);
+    const { page = 1, limit = 10, sortBy = 'date', order = 'desc', type, category } = req.query;
+    
+    const filter = { userId: req.user.id };
+    if (type) filter.type = type; // Filter by income or expense
+    if (category) filter.category = category; // Filter by category
+
+    const transactions = await Transaction.find(filter)
+      .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await Transaction.countDocuments(filter);
+
+    res.status(200).json({
+      transactions,
+      totalPages: Math.ceil(total / limit),
+      currentPage: Number(page),
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Error retrieving transactions', error: err });
+    console.error('Error retrieving transactions:', err);
+    res.status(500).json({ message: 'Error retrieving transactions', error: err.message });
   }
 };
 
-// POST a new transaction for the authenticated user
+// POST a new transaction with validation
 const createTransaction = async (req, res) => {
   const { description, amount, type, category } = req.body;
+
+  if (!description || !amount || !type || !category) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  if (amount <= 0) {
+    return res.status(400).json({ message: 'Amount must be greater than zero' });
+  }
 
   const newTransaction = new Transaction({
     description,
@@ -27,31 +52,39 @@ const createTransaction = async (req, res) => {
     await newTransaction.save();
     res.status(201).json({ message: 'Transaction created successfully', transaction: newTransaction });
   } catch (err) {
-    res.status(500).json({ message: 'Error creating transaction', error: err });
+    console.error('Error creating transaction:', err);
+    res.status(500).json({ message: 'Error creating transaction', error: err.message });
   }
 };
-// Other methods (updateTransaction, deleteTransaction) remain similar but should verify ownership
+
+// UPDATE a transaction with validation
 const updateTransaction = async (req, res) => {
   const { id } = req.params;
   const { description, amount, type, category } = req.body;
 
+  if (amount && amount <= 0) {
+    return res.status(400).json({ message: 'Amount must be greater than zero' });
+  }
+
   try {
     const transaction = await Transaction.findOneAndUpdate(
-      { _id: id, userId: req.user.id }, // Ensure the user owns the transaction
+      { _id: id, userId: req.user.id },
       { description, amount, type, category },
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found or unauthorized' });
     }
 
-    res.status(200).json(transaction);
+    res.status(200).json({ message: 'Transaction updated successfully', transaction });
   } catch (err) {
-    res.status(500).json({ message: 'Error updating transaction', error: err });
+    console.error('Error updating transaction:', err);
+    res.status(500).json({ message: 'Error updating transaction', error: err.message });
   }
 };
 
+// DELETE a transaction with error handling
 const deleteTransaction = async (req, res) => {
   const { id } = req.params;
 
@@ -64,99 +97,39 @@ const deleteTransaction = async (req, res) => {
 
     res.status(200).json({ message: 'Transaction deleted successfully' });
   } catch (err) {
-    res.status(500).json({ message: 'Error deleting transaction', error: err });
+    console.error('Error deleting transaction:', err);
+    res.status(500).json({ message: 'Error deleting transaction', error: err.message });
   }
 };
 
+// GET transactions within a specific date range
 const getTransactionsInRange = async (req, res) => {
   const { startDate, endDate } = req.body;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ message: 'Start and end dates are required' });
+  }
+
   try {
     const transactions = await Transaction.find({
       userId: req.user.id,
       date: { $gte: new Date(startDate), $lte: new Date(endDate) }
-    });
+    }).sort({ date: -1 });
+
     res.status(200).json(transactions);
   } catch (err) {
-    res.status(500).json({ message: 'Error calculating transactions in some specific range', error: err.message });
+    console.error('Error fetching transactions in range:', err);
+    res.status(500).json({ message: 'Error retrieving transactions', error: err.message });
   }
-  /*
-  const lastMonth = new Date();
-  lastMonth.setMonth(lastMonth.getMonth() - 1);
-
-  try {
-    const transactions = await Transaction.find({ userId: req.user._id, date: { $gte: lastMonth } });
-    const totalIncome = transactions
-      .filter(t => t.type === 'income')
-      .reduce((acc, t) => acc + t.amount, 0);
-    const totalExpenses = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((acc, t) => acc + t.amount, 0);
-
-    const categoryExpenses = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((acc, t) => {
-        acc[t.category] = (acc[t.category] || 0) + t.amount;
-        return acc;
-      }, {});
-
-    const categoryIncome = transactions
-      .filter(t => t.type === 'income')
-      .reduce((acc, t) => {
-        acc[t.category] = (acc[t.category] || 0) + t.amount;
-        return acc;
-      }, {});
-
-    res.status(200).json({
-      totalIncome,
-      totalExpenses,
-      categoryExpenses,
-      categoryIncome
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Error calculating statistics', error: err });
-  }*/
 };
 
+// GET total income grouped by category
 const getTotalIncome = async (req, res) => {
   const { startDate, endDate } = req.body;
 
-  try {
-    const userId = new mongoose.Types.ObjectId(req.user.id);
-
-    const results = await Transaction.aggregate(
-      [
-        {
-          $match: {
-            userId: userId,
-            date: { $gte: new Date(startDate), $lte: new Date(endDate) },
-            type: 'income' // Filter for expense transactions
-          }
-        },
-        {
-          $group: {
-            _id: "$category", // Group by category
-            totalAmount: { $sum: "$amount" } // Sum the amounts
-          }
-        },
-        {
-          $project: {
-            _id: 0,
-            category: "$_id",
-            totalAmount: 1
-          }
-        }
-      ]
-    );
-
-    res.status(200).json(results);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ message: 'Error calculating total income', error: err.message });
+  if (!startDate || !endDate) {
+    return res.status(400).json({ message: 'Start and end dates are required' });
   }
-};
-
-const getTotalExpenses = async (req, res) => {
-  const { startDate, endDate } = req.body;
 
   try {
     const userId = new mongoose.Types.ObjectId(req.user.id);
@@ -164,15 +137,15 @@ const getTotalExpenses = async (req, res) => {
     const results = await Transaction.aggregate([
       {
         $match: {
-          userId: userId,
+          userId,
           date: { $gte: new Date(startDate), $lte: new Date(endDate) },
-          type: 'expense' // Filter for expense transactions
+          type: 'income',
         }
       },
       {
         $group: {
-          _id: "$category", // Group by category
-          totalAmount: { $sum: "$amount" } // Sum the amounts
+          _id: "$category",
+          totalAmount: { $sum: "$amount" }
         }
       },
       {
@@ -186,6 +159,48 @@ const getTotalExpenses = async (req, res) => {
 
     res.status(200).json(results);
   } catch (err) {
+    console.error('Error calculating total income:', err);
+    res.status(500).json({ message: 'Error calculating total income', error: err.message });
+  }
+};
+
+// GET total expenses grouped by category
+const getTotalExpenses = async (req, res) => {
+  const { startDate, endDate } = req.body;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ message: 'Start and end dates are required' });
+  }
+
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+
+    const results = await Transaction.aggregate([
+      {
+        $match: {
+          userId,
+          date: { $gte: new Date(startDate), $lte: new Date(endDate) },
+          type: 'expense',
+        }
+      },
+      {
+        $group: {
+          _id: "$category",
+          totalAmount: { $sum: "$amount" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          category: "$_id",
+          totalAmount: 1
+        }
+      }
+    ]);
+
+    res.status(200).json(results);
+  } catch (err) {
+    console.error('Error calculating total expenses:', err);
     res.status(500).json({ message: 'Error calculating total expenses', error: err.message });
   }
 };
