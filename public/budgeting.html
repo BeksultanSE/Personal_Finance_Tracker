@@ -162,7 +162,9 @@
             try {
                 const lastMonth = new Date();
                 lastMonth.setMonth(lastMonth.getMonth() - 1);
-                const response = await fetch(API_URL_STATISTICS, {
+
+                // Fetch total income
+                const incomeResponse = await fetch(`${API_URL_STATISTICS}/income`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -173,8 +175,55 @@
                         "endDate": new Date(),
                     })
                 });
-                transactions = await response.json();
-                stats = processTransactions(transactions);
+
+                if (!incomeResponse.ok) {
+                    throw new Error('Failed to fetch income statistics');
+                }
+                
+                const incomeStats = await incomeResponse.json();
+
+                // Fetch total expenses
+                const expensesResponse = await fetch(`${API_URL_STATISTICS}/expenses`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        "startDate": lastMonth,
+                        "endDate": new Date(),
+                    })
+                });
+
+                if (!expensesResponse.ok) {
+                    throw new Error('Failed to fetch expense statistics');
+                }
+
+                const expenseStats = await expensesResponse.json();
+
+                // Calculate total income and total expenses
+                const totalIncome = incomeStats.reduce((acc, curr) => acc + curr.totalAmount, 0);
+                const totalExpenses = expenseStats.reduce((acc, curr) => acc + curr.totalAmount, 0);
+
+                // Create categoryIncome and categoryExpenses objects directly from the fetched data
+                const categoryIncome = {};
+                incomeStats.forEach(item => {
+                    categoryIncome[item.category] = item.totalAmount; // Directly use totalAmount
+                });
+
+                const categoryExpenses = {};
+                expenseStats.forEach(item => {
+                    categoryExpenses[item.category] = item.totalAmount; // Directly use totalAmount
+                });
+
+                // Combine all statistics into a single object
+                const stats = {
+                    totalIncome,
+                    totalExpenses,
+                    categoryIncome,
+                    categoryExpenses
+                };
+
                 renderStatistics(stats);
             } catch (error) {
                 console.error('Error fetching statistics:', error);
@@ -266,7 +315,7 @@
                 fetchBudgets(); // Refresh budget list
             } catch (error) {
                 console.error('Error deleting budget:', error);
-                
+
             }
         }
 

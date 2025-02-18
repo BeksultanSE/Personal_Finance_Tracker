@@ -1,9 +1,9 @@
 const Transaction = require('../models/transaction');
+const mongoose = require('mongoose');
 
 // GET all transactions for the authenticated user
 const getTransactions = async (req, res) => {
   try {
-    
     const transactions = await Transaction.find({ userId: req.user.id });
     res.status(200).json(transactions);
   } catch (err) {
@@ -117,6 +117,78 @@ const getTransactionsInRange = async (req, res) => {
   }*/
 };
 
+const getTotalIncome = async (req, res) => {
+  const { startDate, endDate } = req.body;
+
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+
+    const results = await Transaction.aggregate(
+      [
+        {
+          $match: {
+            userId: userId,
+            date: { $gte: new Date(startDate), $lte: new Date(endDate) },
+            type: 'income' // Filter for expense transactions
+          }
+        },
+        {
+          $group: {
+            _id: "$category", // Group by category
+            totalAmount: { $sum: "$amount" } // Sum the amounts
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            category: "$_id",
+            totalAmount: 1
+          }
+        }
+      ]
+    );
+
+    res.status(200).json(results);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: 'Error calculating total income', error: err.message });
+  }
+};
+
+const getTotalExpenses = async (req, res) => {
+  const { startDate, endDate } = req.body;
+
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+
+    const results = await Transaction.aggregate([
+      {
+        $match: {
+          userId: userId,
+          date: { $gte: new Date(startDate), $lte: new Date(endDate) },
+          type: 'expense' // Filter for expense transactions
+        }
+      },
+      {
+        $group: {
+          _id: "$category", // Group by category
+          totalAmount: { $sum: "$amount" } // Sum the amounts
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          category: "$_id",
+          totalAmount: 1
+        }
+      }
+    ]);
+
+    res.status(200).json(results);
+  } catch (err) {
+    res.status(500).json({ message: 'Error calculating total expenses', error: err.message });
+  }
+};
 
 module.exports = {
   getTransactions,
@@ -124,4 +196,6 @@ module.exports = {
   updateTransaction,
   deleteTransaction,
   getTransactionsInRange,
+  getTotalIncome,
+  getTotalExpenses,
 };

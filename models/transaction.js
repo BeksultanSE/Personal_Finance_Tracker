@@ -9,6 +9,9 @@ const transactionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 }, { collection: "transactions" });
 
+transactionSchema.index({ userId: 1, date: -1 }); // Index for userId and date
+
 const Transaction = mongoose.model('Transaction', transactionSchema);
+
 
 module.exports = Transaction;

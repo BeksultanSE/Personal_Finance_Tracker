@@ -18,4 +18,8 @@ router.delete('/:id', authenticate, transactionController.deleteTransaction);
 // POST range and Get transactions in that specific range 
 router.post('/inRange', authenticate, transactionController.getTransactionsInRange);
 
+router.post('/inRange/income', authenticate, transactionController.getTotalIncome);
+
+router.post('/inRange/expenses', authenticate, transactionController.getTotalExpenses);
+
 module.exports = router;
