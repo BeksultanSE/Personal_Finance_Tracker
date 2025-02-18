@@ -57,7 +57,7 @@
         </div>
 
         <!-- Expense distribution chart -->
-        
+
 
         <div class="mt-5">
             <h4 class="text-center">Income Breakdown</h4>
@@ -78,82 +78,27 @@
         const API_URL_STATISTICS = '/api/transactions/inRange';
         const statisticsDiv = document.getElementById('statistics');
 
-        /////////////statistics
-        async function fetchStatistics() {
-            try {
-                const lastMonth = new Date();
-                lastMonth.setMonth(lastMonth.getMonth() - 1);
-                const response = await fetch(API_URL_STATISTICS, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        "startDate": lastMonth,
-                        "endDate": new Date(),
-                    })
-                });
-                transactions = await response.json();
-                stats = processTransactions(transactions);
-                renderStatistics(stats);
-            } catch (error) {
-                console.error('Error fetching statistics:', error);
-            }
-        }
-
-        // Render statistics
-        function renderStatistics(stats) {
-
-            statisticsDiv.innerHTML = `
-                
-                <p>Total Income: ₸${stats.totalIncome.toFixed(2)}</p>
-                <p>Total Expenses: ₸${stats.totalExpenses.toFixed(2)}</p>
-                <h5>Category Expenses:</h5>
-                <ul>
-
-                    ${Object.entries(stats.categoryExpenses).map(([category, amount]) => `
-                        <li>${category}: ₸${amount.toFixed(2)}</li>
-                    `).join('')}
-                </ul><h5>Category Income:</h5>
-                <ul>
-
-                    ${Object.entries(stats.categoryIncome).map(([category, amount]) => `
-                        <li>${category}: ₸${amount.toFixed(2)}</li>
-                    `).join('')}
-                </ul>
-            `;
-        }
-        //////////statistics
+        //./js/transactions.js included for statistics 
 
         document.addEventListener("DOMContentLoaded", async () => {
-            await loadReports();
-            await fetchStatistics();
+            const stats = await fetchStatistics();
+            await loadReports(stats);
         });
 
-        async function loadReports() {
+        async function loadReports(stats) {
             try {
-                const [transactions, budgets] = await Promise.all([
-                    fetchTransactions(),
+                const [budgets] = await Promise.all([
+                    
                     fetchBudgets()
                 ]);
 
                 displayBudgets(budgets);
-                renderIncomeChart(transactions);
-                renderExpenseChart(transactions);
+                renderStatistics(stats, budgets);
+                renderIncomeChart(stats);
+                renderExpenseChart(stats);
             } catch (error) {
                 console.error("Error loading reports:", error);
             }
-        }
-
-        async function fetchTransactions() {
-            const response = await fetch('/api/transactions', {
-                method: 'GET',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message);
-            return data;
         }
 
         async function fetchBudgets() {
@@ -178,13 +123,8 @@
             });
         }
 
-        function renderIncomeChart(transactions) {
-            const incomeByCategory = transactions
-                .filter(t => t.type === 'income')
-                .reduce((acc, t) => {
-                    acc[t.category] = (acc[t.category] || 0) + t.amount;
-                    return acc;
-                }, {});
+        function renderIncomeChart(stats) {
+            const incomeByCategory = stats.categoryIncome;
 
             const ctx = document.getElementById('incomeChart').getContext('2d');
             new Chart(ctx, {
@@ -200,13 +140,8 @@
             });
         }
 
-        function renderExpenseChart(transactions) {
-            const expensesByCategory = transactions
-                .filter(t => t.type === 'expense')
-                .reduce((acc, t) => {
-                    acc[t.category] = (acc[t.category] || 0) + t.amount;
-                    return acc;
-                }, {});
+        function renderExpenseChart(stats) {
+            const expensesByCategory = stats.categoryExpenses;
 
             const ctx = document.getElementById('expenseChart').getContext('2d');
             new Chart(ctx, {
