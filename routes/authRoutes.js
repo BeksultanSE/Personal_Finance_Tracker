@@ -1,7 +1,15 @@
-// authRoutes.js
 const express = require('express');
 const { body } = require('express-validator');
-const { registerUser , loginUser , logoutUser , refreshUser , activateUser} = require('../controllers/authController'); // Import the functions
+const {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshUser,
+    activateUser
+} = require('../controllers/authController'); // Import the functions
+const authenticate = require('../middleware/authMiddleware'); // Import auth middleware
+const roleMiddleware = require('../middleware/roleMiddleware'); // Import role middleware
+const User = require('../models/user'); // Import User model
 
 const router = express.Router();
 
@@ -13,7 +21,7 @@ router.post(
         body('email', 'Valid email is required').isEmail(),
         body('password', 'Password must be at least 6 characters').isLength({ min: 6 }),
     ],
-    registerUser  // Use the imported function
+    registerUser
 );
 
 // Login endpoint
@@ -23,22 +31,26 @@ router.post(
         body('email', 'Valid email is required').isEmail(),
         body('password', 'Password is required').exists(),
     ],
-    loginUser  // Use the imported function
+    loginUser
 );
 
-router.post(
-    '/logout',
-    logoutUser
-);
+// Logout endpoint
+router.post('/logout', logoutUser);
 
-router.get(
-    '/refresh',
-    refreshUser
-);
+// Token refresh endpoint
+router.get('/refresh', refreshUser);
 
-router.get(
-    '/activate/:link',
-    activateUser
-);
+// Activation endpoint
+router.get('/activate/:link', activateUser);
+
+// 🚀 **NEW: Admin-only Route to View All Users**
+router.get('/all-users', authenticate, roleMiddleware('admin'), async (req, res) => {
+    try {
+        const users = await User.find().select('-password'); // Fetch users excluding passwords
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error' });
+    }
+});
 
 module.exports = router;

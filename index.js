@@ -37,5 +37,5 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on ${API_URL}`);
+  console.log(` Server running on ${API_URL}`);
 });

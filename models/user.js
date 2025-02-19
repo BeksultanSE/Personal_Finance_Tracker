@@ -5,6 +5,7 @@ const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  role: { type: String, enum: ['admin', 'user'], default: 'user' }, // Add role field
   isActivated: {type: Boolean, default: false},
   activationLink: {type: String},
 }, { timestamps: true });
