@@ -22,4 +22,14 @@ router.post('/inRange/income', authenticate, transactionController.getTotalIncom
 
 router.post('/inRange/expenses', authenticate, transactionController.getTotalExpenses);
 
+// 🏷 Bulk operations for handling multiple transactions at once
+// - Insert multiple transactions: POST /bulk-insert
+// - Update multiple transactions: PUT /bulk-update
+// - Delete multiple transactions: DELETE /bulk-delete
+router.post('/bulk-insert', transactionController.bulkInsertTransactions);
+
+router.put('/bulk-update', transactionController.bulkUpdateTransactions);
+
+router.delete('/bulk-delete', transactionController.bulkDeleteTransactions);
+
 module.exports = router;

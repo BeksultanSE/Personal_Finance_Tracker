@@ -5,12 +5,12 @@ const transactionSchema = new mongoose.Schema({
     type: String, 
     required: true, 
     trim: true, 
-    maxlength: 100  // Prevents excessively long descriptions
+    maxlength: 100  
   },
   amount: { 
     type: Number, 
     required: true, 
-    min: 0  // Ensures no negative values
+    min: 0  
   },
   type: { 
     type: String, 
@@ -38,25 +38,24 @@ const transactionSchema = new mongoose.Schema({
     },
     notes: { 
       type: String, 
-      maxlength: 200  // Optional field for extra info
+      maxlength: 200  
     }
+  },
+  extraData: { 
+    type: mongoose.Schema.Types.Mixed,  // Поддержка произвольных JSON-данных
+    default: {} 
+  },
+  receipt: { 
+    type: Buffer  // Хранение бинарных данных (например, чеков)
   }
 }, { 
   collection: "transactions", 
-  timestamps: true  // Adds createdAt & updatedAt fields automatically
+  timestamps: true 
 });
 
-// 🔹 Optimized Indexes for Performance
-transactionSchema.index({ userId: 1, date: -1 });  // Fast lookup by user & recent transactions
-transactionSchema.index({ category: 1, date: -1 });  // Optimize category-based queries
-transactionSchema.index({ type: 1 });  // Speeds up income/expense filtering
-transactionSchema.index({ metadata: 1 });  // Improves metadata searches
-
-// 🔹 Optional: Auto-delete transactions after 2 years
-transactionSchema.index({ date: 1 }, { expireAfterSeconds: 63072000 });  // TTL index (2 years)
-
-// 🔹 Indexing for Aggregation Queries
-transactionSchema.index({ userId: 1, type: 1, date: -1 });  // Optimizes income/expense aggregation
+transactionSchema.index({ userId: 1, date: -1 });
+transactionSchema.index({ category: 1, date: -1 });
+transactionSchema.index({ type: 1 });
 
 const Transaction = mongoose.model('Transaction', transactionSchema);
 module.exports = Transaction;
