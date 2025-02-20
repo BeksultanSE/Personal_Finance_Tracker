@@ -29,24 +29,6 @@ const transactionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
     required: true 
-  },
-  metadata: { 
-    paymentMethod: { 
-      type: String, 
-      enum: ['cash', 'credit_card', 'bank_transfer', 'crypto'], 
-      default: 'cash' 
-    },
-    notes: { 
-      type: String, 
-      maxlength: 200  
-    }
-  },
-  extraData: { 
-    type: mongoose.Schema.Types.Mixed,  // Поддержка произвольных JSON-данных
-    default: {} 
-  },
-  receipt: { 
-    type: Buffer  // Хранение бинарных данных (например, чеков)
   }
 }, { 
   collection: "transactions", 

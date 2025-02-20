@@ -36,4 +36,6 @@ router.get('/account', authenticate, (req, res) => {
     res.sendFile(path.join(path.dirname(__dirname), 'public', 'account.html'));
 });
 
+
+
 module.exports = router;

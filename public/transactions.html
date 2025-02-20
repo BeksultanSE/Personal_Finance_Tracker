@@ -42,11 +42,17 @@
         <div class="d-flex justify-content-between mb-3">
             <button class="btn btn-primary" id="addTransactionBtn" data-bs-toggle="modal"
                 data-bs-target="#transactionModal">Add Transaction</button>
+            <select class="form-select w-25" id="order">
+                <option value="asc">In ascending</option>
+                <option value="desc">In descending</option>    
+            </select>
             <select class="form-select w-25" id="sortBy">
                 <option value="">Sort by...</option>
                 <option value="date">Date</option>
                 <option value="type">Type</option>
+                <option value="amount">Amount</option>
             </select>
+            
         </div>
         <table class="table table-striped">
             <thead>
@@ -61,6 +67,12 @@
             </thead>
             <tbody id="transactionTableBody"></tbody>
         </table>
+        <!-- Pagination -->
+        <div id="pagination" class="d-flex justify-content-center">
+            <button id="prevPage" class="btn btn-secondary" disabled>Previous</button>
+            <span id="pageInfo" class="mx-3">Page 1 of 1</span>
+            <button id="nextPage" class="btn btn-secondary" disabled>Next</button>
+        </div>
     </div>
 
     <!-- Toast Notification Container -->
@@ -134,10 +146,13 @@
         const API_URL = '/api/transactions';
         const transactionTableBody = document.getElementById('transactionTableBody');
         const saveTransactionBtn = document.getElementById('saveTransactionBtn');
-        const transactionForm = document.getElementById('transactionForm');
         const transactionModal = document.getElementById('transactionModal');
         const toastContainer = document.querySelector('.toast-container');
-        let isEdit = false;
+        const prevPageBtn = document.getElementById('prevPage');
+        const nextPageBtn = document.getElementById('nextPage');
+        const pageInfo = document.getElementById('pageInfo');
+        let currentPage = 1;
+        let totalPages = 1;
 
         // Fetch transactions on load
         document.addEventListener('DOMContentLoaded', fetchTransactions);
@@ -147,7 +162,6 @@
             document.getElementById('transactionCategory').value = '';
             document.getElementById('transactionType').value = '';
             document.getElementById('transactionId').value = '';
-            isEdit = false; // Reset the edit flag
         });
 
         // Show Toast Notification
@@ -165,42 +179,21 @@
             setTimeout(() => toast.remove(), 3000);
         }
 
-        // Обработчик сортировки
-        document.getElementById('sortBy').addEventListener('change', (event) => {
-            const sortValue = event.target.value;
-            if (sortValue) {
-                sortTransactions(sortValue);
-            }
-        });
-
-        // Функция сортировки транзакций
-        function sortTransactions(criteria) {
-            const rows = Array.from(transactionTableBody.querySelectorAll('tr'));
-
-            rows.sort((a, b) => {
-                const aValue = a.querySelector(`td:nth-child(${criteria === 'date' ? 5 : 1})`).textContent;
-                const bValue = b.querySelector(`td:nth-child(${criteria === 'date' ? 5 : 1})`).textContent;
-
-                if (criteria === 'date') {
-                    return new Date(aValue) - new Date(bValue);
-                } else if (criteria === 'type') {
-                    return aValue.localeCompare(bValue);
-                }
-            });
-
-            transactionTableBody.innerHTML = '';
-            rows.forEach(row => transactionTableBody.appendChild(row));
-        }
-
         // Fetch and display transactions
         async function fetchTransactions() {
             try {
-                const response = await fetch(API_URL, {
+                const sortBy = document.getElementById('sortBy').value || "date";
+                const order = document.getElementById('order').value;
+                console.log(order);
+                const response = await fetch(`${API_URL}?page=${currentPage}&sortBy=${sortBy}&order=${order}`, {
                     method: 'GET',
                 });
                 if (!response.ok) throw new Error('Failed to fetch transactions');
-                const transactions = await response.json();
+                const { transactions, totalPages: fetchedTotalPages, currentPage: fetchedCurrentPage } = await response.json();
+                totalPages = fetchedTotalPages;
+                currentPage = fetchedCurrentPage;
                 renderTransactions(transactions);
+                updatePagination();
             } catch (error) {
                 console.error(error);
                 showToast('Error fetching transactions', 'danger');
@@ -228,91 +221,30 @@
             `).join('');
         }
 
-        // Save transaction (Add or Edit)
-        saveTransactionBtn.addEventListener('click', async () => {
-            const description = document.getElementById('transactionDescription').value;
-            const amount = parseFloat(document.getElementById('transactionAmount').value);
-            const category = document.getElementById('transactionCategory').value;
-            const type = document.getElementById('transactionType').value;
-            const id = document.getElementById('transactionId').value;
+        // Update pagination buttons and info
+        function updatePagination() {
+            prevPageBtn.disabled = currentPage === 1;
+            nextPageBtn.disabled = currentPage === totalPages;
+            pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+        }
 
-            if (!description || isNaN(amount) || !category || !type) {
-                showToast('Please fill all fields', 'warning');
-                return;
-            }
-
-            const transaction = { description, amount, type, category };
-            try {
-                const method = isEdit ? 'PUT' : 'POST';
-                const endpoint = isEdit ? `${API_URL}/${id}` : API_URL;
-                const response = await fetch(endpoint, {
-                    method,
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(transaction)
-                });
-                if (!response.ok) throw new Error('Failed to save transaction');
+        // Handle page changes
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
                 fetchTransactions();
-                bootstrap.Modal.getInstance(document.getElementById('transactionModal')).hide();
-            } catch (error) {
-                console.error(error);
-                showToast('Error saving transaction', 'danger');
             }
         });
 
-        // Open modal for editing transaction
-        async function openEditModal(button) {
-            const row = button.closest('tr');
-            const id = row.getAttribute('data-id');
-            const description = row.getAttribute('data-description');
-            const amount = parseFloat(row.getAttribute('data-amount'));
-            const category = row.getAttribute('data-category');
-            const type = row.getAttribute('data-type');
-            document.getElementById('transactionDescription').value = description;
-            document.getElementById('transactionAmount').value = amount;
-            document.getElementById('transactionCategory').value = category;
-            document.getElementById('transactionType').value = type;
-            document.getElementById('transactionId').value = id;
-            isEdit = true;
-            const modal = new bootstrap.Modal(document.getElementById('transactionModal'));
-            modal.show();
-        }
-
-        // Delete a transaction
-        let transactionToDelete = null;
-
-        async function deleteTransaction(id) {
-            transactionToDelete = id;
-            const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
-            modal.show();
-        }
-
-        document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
-            if (!transactionToDelete) return;
-
-            try {
-                const response = await fetch(`${API_URL}/${transactionToDelete}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
-
-                if (!response.ok) throw new Error('Failed to delete transaction');
-
-                showToast('Transaction successfully deleted', 'success');
+        nextPageBtn.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
                 fetchTransactions();
-            } catch (error) {
-                console.error(error);
-                showToast('Error deleting transaction', 'danger');
-            } finally {
-                transactionToDelete = null;
-                bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal')).hide();
             }
         });
+
+        // Sort transactions
+        document.getElementById('sortBy').addEventListener('change', fetchTransactions);
 
     </script>
 
