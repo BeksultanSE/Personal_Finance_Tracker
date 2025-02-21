@@ -105,7 +105,7 @@ function renderStatistics(stats, budgets) {
                 if (budget) {
                     if (amount >= budget.limit) {
                         color = '#ff6384'; // Red for exceeding budget
-                    } else if (amount > budget.limit / 2) {
+                    } else if (amount >= budget.limit / 2) {
                         color = 'orange'; // Yellow for half of the limit
                     }
                 }

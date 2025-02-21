@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 // GET all transactions for the authenticated user with filters, sorting, and pagination
 const getTransactions = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'date', order = 'desc', type, category } = req.query;
+    const { page = 1, limit = 5, sortBy = 'date', order = 'desc', type, category } = req.query;
     
     const filter = { userId: req.user.id };
     if (type) filter.type = type; // Filter by income or expense
@@ -12,8 +12,9 @@ const getTransactions = async (req, res) => {
 
     const transactions = await Transaction.find(filter)
       .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
+      .skip((page - 1) * limit)
       .limit(limit * 1)
-      .skip((page - 1) * limit);
+      ;
 
     const total = await Transaction.countDocuments(filter);
 
@@ -77,7 +78,7 @@ const updateTransaction = async (req, res) => {
       return res.status(404).json({ message: 'Transaction not found or unauthorized' });
     }
 
-    res.status(200).json({ message: 'Transaction updated successfully', transaction });
+    res.status(200).json(transaction);
   } catch (err) {
     console.error('Error updating transaction:', err);
     res.status(500).json({ message: 'Error updating transaction', error: err.message });
