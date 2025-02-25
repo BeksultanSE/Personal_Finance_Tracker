@@ -32,7 +32,7 @@ router.get('/reports', authenticate, (req, res) => {
     res.sendFile(path.join(path.dirname(__dirname), 'public', 'reports.html'));
 });
 
-router.get('/account', authenticate, (req, res) => {
+router.get('/profile', authenticate, (req, res) => {
     res.sendFile(path.join(path.dirname(__dirname), 'public', 'account.html'));
 });
 

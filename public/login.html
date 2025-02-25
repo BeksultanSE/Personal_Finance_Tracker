@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,9 +12,19 @@
             font-size: 0.9rem;
             margin-top: 0.25rem;
         }
+        .message-box {
+        max-width: 400px;
+        margin: 0 auto 15px auto;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #ffe5e5;
+        color: #d32f2f;
+        font-weight: bold;
+        text-align: center;
+        display: none; /* Скрыто по умолчанию */
+        }
     </style>
 </head>
-
 <body>
     <div class="container py-5">
         <h2 class="text-center mb-4">Login</h2>
@@ -28,8 +37,7 @@
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
-                    <input type="password" class="form-control" id="password" placeholder="Enter your password"
-                        required>
+                    <input type="password" class="form-control" id="password" placeholder="Enter your password" required>
                     <div id="password-error" class="error-message"></div>
                 </div>
                 <div class="d-grid">
@@ -40,12 +48,6 @@
         </div>
     </div>
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('activation') === 'success') {
-
-            alert('Your account has been activated successfully! You can now log in.');
-        }
-
         document.querySelector('#login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -64,14 +66,14 @@
             try {
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
+                    headers: { 
+                        'Content-Type': 'application/json' 
                     },
                     body: JSON.stringify({ email, password }),
                 });
-
+                
                 const data = await res.json();
-
+                
                 if (data.ok) {
                     window.location.href = '/dashboard';
                 } else {
@@ -91,6 +93,17 @@
             }
         });
     </script>
-</body>
 
+<div id="message-box" class="message-box"></div>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const message = urlParams.get('message');
+    if (message) {
+      const messageBox = document.getElementById('message-box');
+      messageBox.innerText = decodeURIComponent(message);
+      messageBox.style.display = 'block';
+    }
+  </script>  
+</body>
 </html>

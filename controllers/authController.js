@@ -131,6 +131,60 @@ async function refresh(refreshToken){
     return {...tokens, user: user};
 }
 
+const getUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.status(200).json(user);
+    } catch (error) {
+        console.error('Get user error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// Update user details
+const updateUser = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        const userId = req.user.id;
+
+        // Find user and validate they exist
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Update user fields
+        if (name) user.name = name;
+        if (email) user.email = email;
+        if (password) user.password = password;
+
+        await user.save();
+
+        // Return updated user without password
+        const updatedUser = await User.findById(userId).select('-password');
+        res.json(updatedUser);
+    } catch (error) {
+        console.error('Update user error:', error);
+        res.status(500).json({ message: 'Error updating user information' });
+    }
+};
+
+// Delete user account
+const deleteUser = async (req, res) => {
+    try {
+        const user = await User.findByIdAndDelete(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        res.clearCookie('token', { httpOnly: true });
+        res.status(200).json({ message: 'User deleted successfully' });
+    } catch (error) {
+        console.error('Delete user error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
 
 // Export the functions
 module.exports = {
@@ -139,4 +193,7 @@ module.exports = {
     logoutUser ,
     refreshUser ,
     activateUser ,
+    getUser , 
+    updateUser , 
+    deleteUser ,
 };

@@ -135,8 +135,8 @@
             
                 if (data.ok) {
                     //alert(data.message);
-                    showToast('Registration successful! Please log in.', 'success');
-                    setTimeout(() => window.location.href = '/login', 1000);
+                    showToast('Registration successful! Please login via activation link sent to your email.', 'success');
+                    setTimeout(() => window.location.href = '/login', 3000);
                     //window.location.href = '/login';
                 } else {
                     if (data.errors) {

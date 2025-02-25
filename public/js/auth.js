@@ -9,7 +9,7 @@ const logout = async () => {
 
         const data = await response.json();
         if (response.ok) {
-            alert(data.message);
+            showToast(data.message);
             window.location.href = '/';
         } else {
             console.error(data.message);

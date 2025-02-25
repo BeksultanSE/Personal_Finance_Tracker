@@ -5,7 +5,10 @@ const {
     loginUser,
     logoutUser,
     refreshUser,
-    activateUser
+    activateUser,
+    getUser,
+    updateUser,
+    deleteUser
 } = require('../controllers/authController'); // Import the functions
 const authenticate = require('../middleware/authMiddleware'); // Import auth middleware
 const roleMiddleware = require('../middleware/roleMiddleware'); // Import role middleware
@@ -52,5 +55,12 @@ router.get('/all-users', authenticate, roleMiddleware('admin'), async (req, res)
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+// Add this route for fetching account data
+router.get('/account', authenticate, getUser);
+
+// Add update account route
+router.put('/account', authenticate, updateUser);
+
 
 module.exports = router;
